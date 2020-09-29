@@ -5,7 +5,7 @@
  */
 
 var app = require('../app');
-var debug = require('debug')('coba-api:server');
+var debug = require('debug')('react-api:server');
 var http = require('http');
 
 /**
@@ -20,6 +20,23 @@ app.set('port', port);
  */
 
 var server = http.createServer(app);
+
+var socketio = require('socket.io');
+const { emit } = require('process');
+
+var io = socketio(server);
+
+io.on('connection', socket => {
+
+  socket.on('chat', function (data) {
+    socket.broadcast.emit('chat', data);
+  })
+
+  socket.on('delete chat backend', function (id) {
+    socket.broadcast.emit('delete-chat-frontend', id);
+  })
+
+})
 
 /**
  * Listen on provided port, on all network interfaces.

@@ -2,6 +2,10 @@ import React from 'react'
 import ChatForm from './ChatForm'
 import ChatList from './ChatList'
 import axios from 'axios'
+import io from 'socket.io-client'
+import moment from 'moment'
+
+var socket = io.connect('http://localhost:3001/')
 
 const request = axios.create({
     baseURL: 'http://localhost:3001/api/',
@@ -19,23 +23,53 @@ export default class ChatBox extends React.Component {
     }
 
     componentDidMount() {
+        this.loadChat()
+
+        const time = moment().format('h:mm a')
+        socket.on('chat', function (data) {
+            this.setState((state, props) => (
+                {
+                    data: [...state.data, { ...data, time, sent: true }]
+                }))
+        }.bind(this))
+
+        socket.on('delete-chat-frontend', function (id) {
+            this.setState((state, props) =>
+                ({
+                    data: state.data.filter(item => {
+                        return item.id !== id.id
+                    })
+                }))
+        }.bind(this))
+    }
+
+    loadChat() {
         request.get('chats').then(data => {
             const completeData = data.data.map(item => {
                 item.sent = true;
                 return item
             })
-            console.log(completeData)
-            this.setState({ data: completeData })
+            console.log('Data Complete', completeData);
+            this.setState({ data: data.data })
         }).catch(err => {
-            console.log(err)
+            console.log('Component Error', err);
         })
     }
 
     addChat(name, message) {
         const id = Date.now()
+        const time = moment().format('h:mm a')
+
         this.setState((state, props) => ({
-            data: [...state.data, { id, name, message, sent: true }]
+            data: [...state.data, { id, name, message, time, sent: true }]
         }));
+
+        socket.emit('chat', {
+            id,
+            name,
+            message
+        })
+
         request.post('chats', {
             id,
             name,
@@ -59,6 +93,11 @@ export default class ChatBox extends React.Component {
         this.setState((state, props) => ({
             data: state.data.filter(item => item.id !== id)
         }));
+
+        socket.emit('delete chat backend', {
+            id
+        })
+
         request.delete(`chats/${id}`).then(data => {
             console.log(data)
         }).catch(err => {
@@ -86,15 +125,21 @@ export default class ChatBox extends React.Component {
     }
 
     render() {
+        const mystyle = {
+            color: "white",
+            backgroundColor: "DodgerBlue",
+            padding: "10px",
+            fontFamily: "Garamond"
+        };
         return (
             <div className="container col-7 mt-3">
-                <form className="card mb-2" style={{backgroundColor:"saddlebrown"}}>
-                    <h1 className="mt-2" style={{alignSelf:"center"}}>React Chat</h1>
+                <form className="card" style={mystyle}>
+                    <h1 className="mt-2" color="" style={{ alignSelf: "center" }}>--- React Chat ---</h1>
                 </form>
-                <form className="card mb-2" style={{backgroundColor:"burlywood"}}>
+                <form className="card" style={{ borderColor: "powderblue", borderStyle: "double", backgroundColor: "cadetblue" }}>
                     <ChatList data={this.state.data} remove={this.removeChat} resend={this.resendChat} />
                 </form>
-                <form className="card mb-2" style={{backgroundColor:"burlywood"}}>
+                <form className="card" style={{ borderColor: "powderblue", borderStyle: "double", backgroundColor: "currentcolor" }}>
                     <div>
                         <ChatForm add={this.addChat} />
                     </div>
